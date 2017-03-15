@@ -37,15 +37,25 @@ This model, backs off to smaller n-grams when a key is not found in the larger n
 The word returned is the match found in the largest n-gram where the key is actually found.
 
 
-
-How the App Works and Usage
+How the App Works
 ========================================================
 
 
  In summary, this application is desigend to take a key word or phrase, match it to the most frequent "n-1" term found in the TDM
  and return the "nth" word with the highest frequency.
  
- The possible usage for this application is limitless. For example, this app could be incorporated in the user interface of your 
+ To test it, simply type any English word or phrase in the "Text Input" box.  The green text labeled "The next word predicted is:" will
+ show the next most likely word that will follow based on the algorithm.  
+ 
+ For example, typing "the mayor" is followed by "of", "the", "city", "of", "new", "york"... and so on.  
+ Try it on the <a href = "https://claud1603.shinyapps.io/PredictApp/"> app!</a>
+ 
+ 
+
+Application Usage
+========================================================
+
+The possible usage for this application is limitless. For example, this app could be incorporated in the user interface of your 
  own company's website!! 
  
  The user will simply type in a word in the search bar, and the algorithm would auto-fill the most likely next word, much like 
@@ -53,6 +63,3 @@ How the App Works and Usage
  
  This in turn, will allow you to study consumer behavior of most frequently searched products or trends within your company and line
  of business.    
-
-
-
