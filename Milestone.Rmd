@@ -1,0 +1,173 @@
+---
+title: "Capstone Milestone"
+author: "Claudia Morales"
+date: "February 14, 2017"
+output: html_document
+---
+
+```{r,echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+library(tm)
+library(stringr)
+library(R.utils)
+library(wordcloud)
+library(RWeka)
+library(ggplot2)
+library(readr)
+library(stringi)
+
+## Directory
+setwd("C:/Users/vgw52064/Desktop/Coursera/10_Capstone/")
+path <- getwd()
+```
+
+### DATA DOWNLOAD
+
+The data was downloaded from [here](https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip) and it contains
+the text files used in this project.  In addition, I have added my own file named *profanity* which contains a list of words that will
+be extracted from the files below in order to produce a profanity-free version of the algorithm.
+
+The data sets consist of text from three different sources including news, blogs, and twitter feeds.
+It is provided in 4 different languages but we will only focus on the English - United States data sets.
+
+```{r,warning=FALSE}
+fileb = readLines("./Data/en_US.blogs.txt", encoding = "UTF-8", skipNul = TRUE)
+filen = readLines("./Data/en_US.news.txt", encoding = "UTF-8", skipNul = TRUE)
+filet = readLines("./Data/en_US.twitter.txt", encoding = "UTF-8", skipNul = TRUE)
+profanity <- file.path("./Data/","profanity.txt")
+```
+
+### SUMMARY STATISTICS OF DATA SETS
+
+The data sets are examined below:
+
+```{r}
+# File sizes in MB
+blogs.size <- as.numeric(file.info("./Data/en_US.blogs.txt")$size / 1024 ^ 2)
+news.size <- as.numeric(file.info("./Data/en_US.news.txt")$size / 1024 ^ 2)
+twitter.size <- as.numeric(file.info("./Data/en_US.twitter.txt")$size / 1024 ^ 2)
+
+# Number of words in each file
+blogs.words <- as.numeric(stri_count_words(fileb))
+news.words <- as.numeric(stri_count_words(filen))
+twitter.words <- as.numeric(stri_count_words(filet))
+
+# Summary table
+DF <- data.frame(FILE = c("blogs", "news", "twitter"),
+           SIZE_MB = c(blogs.size, news.size, twitter.size),
+           LINES = c(length(fileb), length(filen), length(filet)),
+           WORDS = c(sum(blogs.words), sum(news.words), sum(twitter.words)),
+           AVG_NUM_WORDS = c(mean(blogs.words), mean(news.words), mean(twitter.words)))
+DF[,c(2,5)] <- format(DF[,c(2,5)], digits=2)
+DF[,c(3:4)] <- format(DF[,c(3:4)], big.mark=",")
+DF
+```
+
+### CREATING A SAMPLE AND DATA CLEANING 
+
+Since the data sets are quite large, we will create a sample by randomly choosing 1% of each file (blogs, news, tweets) to demonstrate the 
+data cleaning and exploratory analysis.
+This process below will include removing URLs, special characters, punctuations, numbers, excess whitespace, stopwords, and profanity. 
+
+```{r,warning=FALSE}
+# Sample the data
+set.seed(1400)
+data.sample <- c(sample(fileb, length(fileb) * 0.01),
+                 sample(filen, length(filen) * 0.01),
+                 sample(filet, length(filet) * 0.01))
+# To get rid of all other weird characters that may cause a problem below:
+data.sample <- sapply(data.sample,function(row) iconv(row, "latin1", "ASCII", sub=""))
+
+# Create corpus and clean the data
+corpus <- VCorpus(VectorSource(data.sample))
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+corpus <- tm_map(corpus, toSpace, "(f|ht)tp(s?)://(.*)[.][a-z]+'")
+corpus <- tm_map(corpus, toSpace, "@[^\\s]+")
+corpus <- tm_map(corpus, removeWords, stopwords("en"))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, tolower)
+corpus <- tm_map(corpus, removeWords, read_lines(profanity))
+corpus <- tm_map(corpus, PlainTextDocument)
+```
+
+### PLOTS 
+
+Finding the most frequently occurring words in the data and visualizing as a wordcloud. 
+
+```{r}
+## Quick wordcloud graph
+wordcloud(corpus, max.words = 125, rot.per=0.25, random.order = F, use.r.layout = F, colors = brewer.pal(4, "PRGn"))
+```
+
+Here we list the most common unigrams, bigrams, and trigrams.
+
+```{r}
+## change corpus into data frame
+df <- data.frame(text = unlist(sapply(corpus, '[', "content")), stringsAsFactors = F)
+
+## create tokens for n frequencies
+token = function(data, size){
+     ngram = NGramTokenizer(data, Weka_control(min=size, max=size, delimiters = " \\t\\r\\n.!?,;\"()"))
+     word = data.frame(table(ngram))
+     sorted = word[order(word$Freq, decreasing = T),]
+     colnames(sorted) = c("Word", "Count")
+     sorted
+}
+
+one   = token(df,1)
+two   = token(df,2)
+three = token(df,3)
+
+## plot the n grams
+par(mfrow = c(3, 1.5))
+plot = function(data, count = 30){
+     barplot(data[1:count,2], names.arg = data[1:count,1], cex.names = .6, axis.lty = 1, srt = 45,
+             col = "lavender", 
+             main = paste("Frequency of Word(s)"), las = 2)
+     }
+```
+
+
+#### Unigram
+
+```{r}
+plot(one)
+```
+     
+
+#### Bigram
+
+```{r}
+plot(two)
+```
+  
+#### Trigram
+
+```{r}
+plot(three)
+```
+  
+### NEXT STEPS
+
+Now that the exploratory analysis is complete we can focus on the next steps of the  project which includes a predictive algorithm
+that will be deployed using Shinny.
+
+The predictive algorithm uses a n-gram model with frequency lookup similar to our exploratory analysis above. A possible strategy would be 
+to use the trigram model to predict the next word. If no matching trigram can be found, then the algorithm reverts back to the bigram model,
+or the unigram model if necessary.
+
+The Shiny app will employ a text input box where the user can enter a phrase. Then the app will use the algorithm to suggest the most
+likely next word. 
+
+#### Libraries Used in this project:
+     
+library(tm)  
+library(stringr)  
+library(R.utils)  
+library(wordcloud)  
+library(RWeka)  
+library(ggplot2)  
+library(readr)  
+library(stringi)  
+
